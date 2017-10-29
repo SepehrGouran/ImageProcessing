@@ -54,19 +54,18 @@ public class ImageProcessing {
     // Map two image
     public BufferedImage mapImage (BufferedImage templateImage, int startPixelX, int startPixelY, BufferedImage contentImage) {
 
-        System.out.println("Image width " + templateImage.getWidth());
-        System.out.println("Image height " + templateImage.getHeight());
+        int width = contentImage.getWidth();
+        int height = contentImage.getHeight();
+
+        startPixelX = startPixelX - (width/2);
+        startPixelY = startPixelY - (height/2);
 
         for (int i = 0; i < contentImage.getWidth(); i++) {
             for (int j = 0; j < contentImage.getHeight(); j++) {
                 Color color = new Color(contentImage.getRGB(i,j));
-                /*System.out.println("Pixel --- " + i + "," + j);
-                System.out.println("Red   - " + color.getRed());
-                System.out.println("Green - " + color.getGreen());
-                System.out.println("Blue  - " + color.getBlue());
-                System.out.println("Alpha - " + color.getAlpha());
-                System.out.println("Transparency - " + color.getTransparency());*/
-                templateImage.setRGB(startPixelX + i, startPixelY + j, color.getRGB());
+                if (color.getRGB() != Color.gray.getRGB()) {
+                    templateImage.setRGB(startPixelX + i, startPixelY + j, color.getRGB());
+                }
             }
         }
 

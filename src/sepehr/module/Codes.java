@@ -16,6 +16,7 @@ public class Codes {
     public static String STUDENT_NO = "student-no";
     public static String STUDENT_YES = "student-yes";
     public static String SELECT_UNIVERSITY = "university";
+    public static String FULL_IMAGE = "full-image";
 
     public static Map<String, Integer> idea = new HashMap<>();
 

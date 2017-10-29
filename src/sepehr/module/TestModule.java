@@ -1,6 +1,7 @@
 package sepehr.module;
 
 import com.pengrad.telegrambot.TelegramBot;
+import com.pengrad.telegrambot.model.ChatMember;
 import com.pengrad.telegrambot.model.File;
 import com.pengrad.telegrambot.model.Message;
 import com.pengrad.telegrambot.model.Update;
@@ -8,9 +9,19 @@ import com.pengrad.telegrambot.model.request.InlineKeyboardButton;
 import com.pengrad.telegrambot.model.request.InlineKeyboardMarkup;
 import com.pengrad.telegrambot.model.request.Keyboard;
 import com.pengrad.telegrambot.model.request.ReplyKeyboardMarkup;
+import com.pengrad.telegrambot.request.EditMessageReplyMarkup;
+import com.pengrad.telegrambot.request.GetChatMember;
 import com.pengrad.telegrambot.request.SendMessage;
+import com.pengrad.telegrambot.request.SendPhoto;
+import com.pengrad.telegrambot.response.GetChatMemberResponse;
 import com.pengrad.telegrambot.response.StringResponse;
+import com.sun.xml.internal.bind.v2.TODO;
+import sepehr.ImageProcessing;
 
+import javax.imageio.ImageIO;
+import java.awt.image.BufferedImage;
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -23,7 +34,7 @@ public class TestModule extends Module {
         super(bot);
     }
 
-    private Map<Integer, Long> ideaUser = new HashMap<>();
+    private Map<Long, Integer> ideaUser = new HashMap<>();
 
     @Override
     public Boolean parse(Update u) {
@@ -43,6 +54,21 @@ public class TestModule extends Module {
                     student(u.callbackQuery().from().id());
                 } else if (u.callbackQuery().data().equalsIgnoreCase(Codes.SELECT_UNIVERSITY)) {
                     sendPreview(u.callbackQuery().from().id());
+                } else if (u.callbackQuery().data().equalsIgnoreCase(Codes.FULL_IMAGE)) {
+                    editInlineKeyboard(u);
+                    System.out.println(getPreviewIndex(u.callbackQuery().from().id()) + " LOOOL");
+                    try {
+                        sendFullImage(u.callbackQuery().from().id(),
+                                getPreviewIndex(u.callbackQuery().from().id()), u.callbackQuery().from().id());
+                    } catch (NullPointerException e) {
+
+                        // TODO: No previous image
+                        System.out.println("Log --- null");
+                    } catch (IOException e) {
+                        e.printStackTrace();
+                    }
+                } else if (u.callbackQuery().data().equalsIgnoreCase(Codes.START)) {
+                    start(u.callbackQuery().from().id());
                 }
 
                 else {
@@ -77,7 +103,7 @@ public class TestModule extends Module {
 
         InlineKeyboardMarkup ikm = new InlineKeyboardMarkup(ikbs);
 
-        SendMessage sendMessage = new SendMessage(chatID, "دانشجو هستی؟");
+        SendMessage sendMessage = new SendMessage(chatID, " آیا دانشجو کرمانشاه هستی؟");
         sendMessage.replyMarkup(ikm);
 
         bot.execute(sendMessage);
@@ -112,10 +138,20 @@ public class TestModule extends Module {
 
     private void sendPreview (long chatID) {
 
-        int randomIndex = (int) (Math.random() * 19 + 1);
-        System.out.println("Log --- random index = " + randomIndex);
+        int randomIndex = getRandom(19);
 
-        ideaUser.put(randomIndex, chatID);
+        boolean contains = true;
+        for (Map.Entry<Long, Integer> entry : ideaUser.entrySet()) {
+            if (entry.getKey() == chatID) {
+                entry.setValue(randomIndex);
+                contains = false;
+            }
+        }
+
+        if (contains) {
+            ideaUser.put(chatID, randomIndex);
+        }
+
 
         String idea = "";
 
@@ -139,8 +175,113 @@ public class TestModule extends Module {
         bot.execute(sendMessage);
     }
 
-    private void sendFullImage (long chatID, int previewIndex) {
+    private Integer getPreviewIndex (long chatID) {
 
+        Integer index = null;
 
+        for (Map.Entry<Long, Integer> entry : ideaUser.entrySet()) {
+            if (entry.getKey() == chatID) {
+                 index = entry.getValue();
+            }
+        }
+
+        return index;
     }
+
+    private void sendFullImage (long chatID, Integer previewIndex, int userID) throws IOException {
+
+        GetChatMember getChatMember = new GetChatMember("@asanbesan", userID);
+        GetChatMemberResponse response = bot.execute(getChatMember);
+
+
+        if (response != null
+                && response.chatMember().status() != ChatMember.Status.kicked
+                && response.chatMember().status() != ChatMember.Status.left
+                && response.chatMember().status() != ChatMember.Status.restricted) {
+            System.out.println(response);
+
+            if (previewIndex != null) {
+                System.out.println("Log --- index = " + previewIndex);
+
+                ImageProcessing imageProcessing = new ImageProcessing();
+
+                java.io.File template = new java.io.File("image/template.png");
+                java.io.File ideaFile = new java.io.File("image/teacher/" + String.valueOf(previewIndex) + ".png");
+                java.io.File dieFile = new java.io.File("image/die/" + String.valueOf(getRandom(16)) + ".png");
+                java.io.File luckFile = new java.io.File("image/luck/" + String.valueOf(getRandom(12)) + ".png");
+                java.io.File loveFile = new java.io.File("image/love/" + String.valueOf(getRandom(9)) + ".png");
+                BufferedImage templateImage = imageProcessing.resolveTransparency(ImageIO.read(template));
+                BufferedImage ideaImage = imageProcessing.resolveTransparency(ImageIO.read(ideaFile));
+                BufferedImage dieImage = imageProcessing.resolveTransparency(ImageIO.read(dieFile));
+                BufferedImage luckImage = imageProcessing.resolveTransparency(ImageIO.read(luckFile));
+                BufferedImage loveImage = imageProcessing.resolveTransparency(ImageIO.read(loveFile));
+
+                templateImage = imageProcessing.mapImage(templateImage, 410, 170, ideaImage);
+                templateImage = imageProcessing.mapImage(templateImage, 270, 340, dieImage);
+                templateImage = imageProcessing.mapImage(templateImage, 270, 460, luckImage);
+                templateImage = imageProcessing.mapImage(templateImage, 270, 640, loveImage);
+
+                SendPhoto sendPhoto = new SendPhoto(chatID, imageToByte(templateImage));
+                InlineKeyboardButton ikbs[][] = new InlineKeyboardButton[1][1];
+                ikbs[0][0] = new InlineKeyboardButton("فال جدید")
+                        .callbackData("/start");
+                InlineKeyboardMarkup ikm = new InlineKeyboardMarkup(ikbs);
+                sendPhoto.replyMarkup(ikm);
+                bot.execute(sendPhoto);
+
+                SendPhoto sendAdd = new SendPhoto(chatID, imageToByte(ImageIO.read(new java.io.File("image/add.png"))));
+                sendAdd.caption("لینک اندروید آسان بسان\n" +
+                        "https://goo.gl/F4qaCx\n" +
+                        "لینک IOS آسان بسان\n" +
+                        "http://goo.gl/X4xRSx");
+                bot.execute(sendAdd);
+            } else {
+                System.out.println("Log -- no image");
+            }
+        } else {
+            SendMessage sendMessage = new SendMessage(chatID, "برای مشاهده فال کامل باید عضو کانال شوید");
+            bot.execute(sendMessage);
+        }
+    }
+
+    private byte[] imageToByte (BufferedImage image) {
+
+        byte[] imageInByte = null;
+        ByteArrayOutputStream baos = new ByteArrayOutputStream();
+        try {
+            ImageIO.write( image, "png", baos );
+            baos.flush();
+            imageInByte = baos.toByteArray();
+            baos.close();
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+
+        return imageInByte;
+    }
+
+    private int getRandom (int min) {
+
+        int randomIndex = (int) (Math.random() * min + 1);
+        System.out.println("Log --- random index = " + randomIndex);
+        return randomIndex;
+    }
+
+    private void editInlineKeyboard(Update u) {
+
+        EditMessageReplyMarkup editMessageReplyMarkup = new EditMessageReplyMarkup(u.callbackQuery().message().chat().id(),
+                u.callbackQuery().message().messageId(), u.callbackQuery().message().text());
+
+
+        InlineKeyboardButton ikbs[][] = new InlineKeyboardButton[1][1];
+
+        ikbs[0][0] = new InlineKeyboardButton("ورود به کانال")
+                .url("https://t.me/joinchat/AAAAAD_L3Q7qVJGc8HX4Tg");
+
+        InlineKeyboardMarkup ikm = new InlineKeyboardMarkup(ikbs);
+        editMessageReplyMarkup.replyMarkup(ikm);
+
+        bot.execute(editMessageReplyMarkup);
+    }
+
 }
